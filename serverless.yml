@@ -8,6 +8,12 @@ frameworkVersion: "3"
 plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
+  - serverless-api-gateway-throttling
+
+custom:
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 10
+    maxConcurrentRequests: 5
 
 provider:
   name: aws
@@ -21,6 +27,10 @@ functions:
     handler: second.hello
   hello:
     handler: src/hello.handler
+    events:
+      - httpApi:
+          method: get
+          path: /hello
   
   costNotifier:
     handler: src/costNotifier.handler
@@ -33,3 +43,31 @@ functions:
         Action:
           - ce:GetCostAndUsage
         Resource: "*"
+  
+  taskPost:
+    handler: src/taskHandler.post
+    events:
+      - httpApi:
+        method: post
+        path: /tasks
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: "arn:aws:dynamodb:*:*:table/tasks"
+  
+resources:
+  Resources:
+    TaskDynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: tasks
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
