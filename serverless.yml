@@ -9,16 +9,26 @@ plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
   - serverless-api-gateway-throttling
+  - serverless-s3-sync
 
 custom:
   apiGatewayThrottling:
     maxRequestsPerSecond: 10
     maxConcurrentRequests: 5
+  bucketName: udemy-aws-lambda-daiki
+  s3Sync:
+    buckets:
+      - bucketName: ${self:custom.bucketName}
+        localDir: static
 
 provider:
   name: aws
   runtime: nodejs16.x
   region: ap-northeast-1
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "http://${self:custom.bucketName}.s3-website-ap-northeast-1.amazonaws.com"
 
 functions:
   first:
@@ -44,12 +54,24 @@ functions:
           - ce:GetCostAndUsage
         Resource: "*"
   
+  taskList:
+    handler: src/taskHandler.list
+    events:
+      - httpApi:
+          method: get
+          path: /tasks
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: "arn:aws:dynamodb:*:*:table/tasks"
+  
   taskPost:
     handler: src/taskHandler.post
     events:
       - httpApi:
-        method: post
-        path: /tasks
+          method: post
+          path: /tasks
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -58,7 +80,7 @@ functions:
   
 resources:
   Resources:
-    TaskDynamoDBTable:
+    TasksDynamoDBTable:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: tasks
@@ -71,3 +93,28 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 5
           WriteCapacityUnits: 5
+  
+    StaticSiteS3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        WebsiteConfiguration:
+          IndexDocument: index.html
+    StaticSiteS3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: StaticSiteS3Bucket
+        PolicyDocument:
+          Statement:
+            - Sid: PublicReadGetObject
+              Effect: Allow
+              Principal: "*"
+              Action:
+                - s3:GetObject
+              Resource: "arn:aws:s3:::${self:custom.bucketName}/*"

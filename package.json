@@ -15,6 +15,7 @@
     "serverless": "^3.24.1",
     "serverless-api-gateway-throttling": "^2.0.2",
     "serverless-iam-roles-per-function": "^3.2.0",
+    "serverless-s3-sync": "^3.1.0",
     "serverless-webpack": "^5.3.1",
     "webpack": "^4.35.2"
   },
